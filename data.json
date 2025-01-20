@@ -1,0 +1,20 @@
+[
+  {
+    "id": "185a0bc5-005f-451c-87a6-e353446ef399",
+    "date": "2025-01-12",
+    "content": "除草"
+  },
+  {
+    "id": "fb6cac2b-03be-4b46-83ed-a85d8407aab4",
+    "date": "2025-01-23",
+    "content": "耕運",
+    "category": "土壌管理"
+  },
+  {
+    "id": "fa6aaf56-eeb0-4971-b4ab-6ba4118c144b",
+    "date": "2025-01-18",
+    "content": "しいたけ",
+    "category": "播種",
+    "dueDate": "2025-01-25"
+  }
+]

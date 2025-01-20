@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agriculture Management</title>
+</head>
+<body>
+
+    <h2>ユーザー登録</h2>
+    <form id="registerForm">
+        <label for="username">ユーザー名:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+        <label for="password">パスワード:</label>
+        <input type="password" id="password" name="password" required>
+        <br>
+        <button type="submit">登録</button>
+    </form>
+
+    <h2>ログイン</h2>
+    <form id="loginForm">
+        <label for="loginUsername">ユーザー名:</label>
+        <input type="text" id="loginUsername" name="username" required>
+        <br>
+        <label for="loginPassword">パスワード:</label>
+        <input type="password" id="loginPassword" name="password" required>
+        <br>
+    <button type="submit">ログイン</button>
+</form>
+
+
+    <h1>農作業記録</h1>
+    <div id="notificationArea"></div>
+
+    <form id="recordForm">
+        <label for="date">日付:</label>
+        <input type="date" id="date" name="date" required>
+        <label for="content">作業内容:</label>
+        <input type="text" id="content" name="content" required>
+        <label for="category">カテゴリ:</label> <!-- (add here) -->
+        <select id="category" name="category" required>
+            <option value="土壌管理">土壌管理</option>
+            <option value="播種">播種</option>
+            <option value="収穫">収穫</option>
+            <option value="肥料施用">肥料施用</option>
+        </select>
+
+        <label for="dueDate">予定日:</label>
+        <input type="date" id="dueDate" name="dueDate">
+
+        <button type="submit">記録する</button>
+    </form>
+    
+
+    <h2>レポート出力</h2>
+    <button onclick="window.location.href='/records/pdf'">PDFでダウンロード</button>
+    <button onclick="window.location.href='/records/csv'">CSVでダウンロード</button>
+    <button onclick="window.location.href='/records/backup'">バックアップをダウンロード</button>
+
+    <h2>リストア</h2>
+    <form id="restoreForm" enctype="multipart/form-data">
+        <label for="backupFile">バックアップファイル:</label>
+        <input type="file" id="backupFile" name="backupFile" accept=".json" required>
+        <br>
+        <button type="submit">リストアする</button>
+    </form>
+
+
+    <h2>記録検索</h2>
+    <form id="searchForm">
+        <label for="searchDate">日付:</label>
+        <input type="date" id="searchDate" name="searchDate">
+        <label for="searchKeyword">キーワード:</label>
+        <input type="text" id="searchKeyword" name="searchKeyword" placeholder="作業内容">
+        <button type="submit">検索</button>
+    </form>
+
+    <h2>記録一括削除</h2>
+    <form id="bulkDeleteForm">
+        <label for="deleteDate">日付:</label>
+        <input type="date" id="deleteDate" name="deleteDate">
+        <label for="deleteKeyword">キーワード:</label>
+        <input type="text" id="deleteKeyword" name="deleteKeyword" placeholder="作業内容">
+        <button type="submit">一括削除</button>
+    </form>
+
+    
+    <h2>作業グラフ</h2>
+    <canvas id="workChart" width="400" height="200"></canvas>
+
+    <h2>カテゴリ別作業割合</h2>
+    <canvas id="categoryChart" width="400" height="200"></canvas>
+
+    <h2>作業記録</h2>
+    <ul id="recordList"></ul>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.getElementById('recordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const date = document.getElementById('date').value;
+            const content = document.getElementById('content').value;
+            const category = document.getElementById('category').value;
+            const dueDate = document.getElementById('dueDate').value;
+            const token = localStorage.getItem('token');
+
+            const response = await fetch('/record', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ date, content, category, dueDate }),
+            });
+
+            if (response.ok) {
+                alert('記録しました！');
+                document.getElementById('recordForm').reset();
+                fetchRecords(); // 更新
+            } else {
+                alert('エラー: 記録に失敗しました');
+            }
+        });
+
+        async function fetchNotifications() {
+            const response = await fetch('/records/notifications');
+            const notifications = await response.json();
+
+            const notificationArea = document.getElementById('notificationArea');
+            notificationArea.innerHTML = '<h2>予定通知</h2>';
+
+            if (notifications.length === 0) {
+                notificationArea.innerHTML += '<p>通知はありません。</p>';
+            } else {
+                notifications.forEach(task => {
+                    const p = document.createElement('p');
+                    p.textContent = `予定日: ${task.dueDate}, 作業内容: ${task.content}`;
+                    notificationArea.appendChild(p);
+                });
+            }
+        }
+        async function fetchRecords() {
+            const token = localStorage.getItem('token');
+            const response = await fetch('/records', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.ok) {
+                const records = await response.json();
+                const recordList = document.getElementById('recordList');
+                recordList.innerHTML = '';
+                records.forEach(record => {
+                    const li = document.createElement('li');
+                    li.textContent = `${record.date}: ${record.content}`;
+                    recordList.appendChild(li);
+                });
+            } else {
+                alert('認証エラー: ログインしてください');
+            }
+        }
+        
+        <!--一括削除のロジックを実装-->
+        document.getElementById('bulkDeleteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const deleteDate = document.getElementById('deleteDate').value;
+            const deleteKeyword = document.getElementById('deleteKeyword').value;
+
+            const query = new URLSearchParams();
+            if (deleteDate) query.append('date', deleteDate);
+            if (deleteKeyword) query.append('keyword', deleteKeyword);
+
+            const confirmation = confirm('指定した条件で全ての記録を削除しますか？');
+            if (!confirmation) return;
+
+            const response = await fetch(`/records?${query.toString()}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                alert('一括削除が完了しました！');
+                fetchRecords(); // リストを更新
+            } else {
+                alert('削除に失敗しました。');
+            }
+        });
+
+        async function drawChart() {
+            const response = await fetch('/records/stats'); // データ取得エンドポイントを呼び出し
+            const stats = await response.json();
+
+            const ctx = document.getElementById('workChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: stats.months, // 月のラベル
+                    datasets: [{
+                        label: '作業数',
+                        data: stats.counts, // 各月の作業数
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // ページロード時にグラフを描画
+        drawChart();
+
+        async function drawCategoryChart() {
+            const response = await fetch('/records/category-stats'); // カテゴリ別集計データを取得
+            const stats = await response.json();
+
+            const categories = Object.keys(stats); // カテゴリ名
+            const counts = Object.values(stats); // 各カテゴリの作業数
+
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie', // 円グラフ
+                data: {
+                    labels: categories,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(153, 102, 255, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                        label: function(tooltipItem) {
+                                    const total = counts.reduce((sum, value) => sum + value, 0);
+                                    const percentage = ((tooltipItem.raw / total) * 100).toFixed(2);
+                                    return `${tooltipItem.label}: ${tooltipItem.raw}回 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ページロード時にグラフを描画
+        drawCategoryChart();
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const searchDate = document.getElementById('searchDate').value;
+        const searchKeyword = document.getElementById('searchKeyword').value;
+
+        const query = new URLSearchParams();
+        if (searchDate) query.append('date', searchDate);
+        if (searchKeyword) query.append('keyword', searchKeyword);
+
+        const response = await fetch(`/records/search?${query.toString()}`);
+        const records = await response.json();
+        const recordList = document.getElementById('recordList');
+        recordList.innerHTML = '';
+        records.forEach(record => {
+            const li = document.createElement('li');
+            li.textContent = `${record.date}: ${record.content}`;
+            recordList.appendChild(li);
+        });
+    });
+
+        async function editRecord(record) {
+            const newContent = prompt('新しい作業内容を入力してください', record.content);
+            if (!newContent) return;
+
+            const updatedRecord = { ...record, content: newContent };
+
+            const response = await fetch(`/record/${record.id}`, {
+                method: 'PUT',
+                headers: {
+                'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedRecord),
+            });
+
+            if (response.ok) {
+                alert('記録を更新しました！');
+                fetchRecords();
+            } else {
+                alert('エラーが発生しました。');
+            }
+        }
+        
+        async function deleteRecord(id) {
+            const token = localStorage.getItem('token');
+            const confirmation = confirm('この記録を本当に削除しますか？');
+            if (!confirmation) return;
+
+            const response = await fetch(`/record/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.ok) {
+                alert('記録を削除しました！');
+                fetchRecords();
+            } else {
+                alert('エラー: 削除に失敗しました');
+            }
+        }
+
+        // ページロード時に記録を取得
+        fetchRecords();
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+                alert('登録が完了しました！');
+                document.getElementById('registerForm').reset();
+            } else {
+                const error = await response.text();
+                alert(`エラー: ${error}`);
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('token', data.token); // トークンを保存
+                alert('ログイン成功！');
+                document.getElementById('loginForm').reset();
+            } else {
+                const error = await response.text();
+                alert(`エラー: ${error}`);
+            }
+      });
+    function checkLogin() {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('ログインが必要です');
+            document.getElementById('recordForm').style.display = 'none';
+            document.getElementById('recordList').style.display = 'none';
+        } else {
+            document.getElementById('recordForm').style.display = 'block';
+            document.getElementById('recordList').style.display = 'block';
+        }
+    }
+
+    checkLogin();
+
+        document.getElementById('restoreForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('backupFile');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const token = localStorage.getItem('token');
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const records = JSON.parse(event.target.result);
+
+                const response = await fetch('/records/restore', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(records),
+                });
+
+                if (response.ok) {
+                    alert('リストアが完了しました！');
+                    fetchRecords();
+                } else {
+                    const error = await response.text();
+                    alert(`エラー: ${error}`);
+                }
+            };
+
+            reader.readAsText(file);
+        });
+
+    </script>
+</body>
+</html>

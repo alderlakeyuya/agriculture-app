@@ -1,0 +1,29 @@
+{
+  "name": "agricultureapp",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.3",
+    "chart.js": "^4.4.7",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fast-csv": "^5.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.16.0",
+    "pg": "^8.13.1",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
