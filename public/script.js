@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const contentDiv = document.getElementById('content');
     
-    fetch('http://localhost:3000/vegetables')
+    fetch('https://agriculture-app-ynyo.onrender.com')
         .then(response => response.json())
         .then(data => {
             contentDiv.innerHTML = '<h2>Vegetable List</h2>';

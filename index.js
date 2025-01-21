@@ -11,13 +11,19 @@ const app = express();
 const PORT = 3000;
 
 // PostgreSQL接続設定
+//const pool = new Pool({
+//  user: 'postgres',
+//  host: 'localhost',
+//  database: 'agriculture',
+//  password: 'dog1101N', // パスワードを設定してください
+//  port: 5432,
+//});
+
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'agriculture',
-  password: 'dog1101N', // パスワードを設定してください
-  port: 5432,
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Render環境での接続に必要
 });
+
 
 // ミドルウェア設定
 app.use(bodyParser.json());
